@@ -1,19 +1,27 @@
 <template>
-    <div class="flex items-center justify-center h-screen bg-gray-50">
+    <div class="flex items-center justify-center h-screen" style="background: #F8F9FC;">
         <div class="text-center">
-            <h1 class="text-xl font-bold text-gray-800">Redirecting...</h1>
+            <div class="animate-spin h-8 w-8 border-2 border-t-transparent rounded-full mx-auto mb-3" style="border-color: #1A4DBE; border-top-color: transparent;"></div>
+            <p class="text-sm font-medium" style="color: #6B7280;">Redirecting…</p>
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { navigateTo } from '#imports';
-import { onMounted } from 'vue'; // Import onMounted for clarity
-
-// Walang middleware dito. Direct redirect lang sa login.
-onMounted(() => {
-    // Awtomatikong mag-redirect ang root sa login.
-    // Gumamit ng replace: true para hindi maipon sa history ang '/' page.
-    navigateTo('/login', { replace: true });
+// Use a synchronous page-level middleware instead of onMounted.
+// onMounted only runs client-side (after SSR), causing a visible flash and race
+// conditions where a stale session cookie redirects to /dashboard before login.
+// A page middleware runs on the server during SSR and on the client during
+// navigation, so the redirect is instant and guaranteed.
+definePageMeta({
+    middleware: [
+        function () {
+            const user = useSupabaseUser();
+            if (user.value) {
+                return navigateTo('/dashboard', { replace: true });
+            }
+            return navigateTo('/login', { replace: true });
+        },
+    ],
 });
 </script>

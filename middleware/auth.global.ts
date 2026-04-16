@@ -6,7 +6,7 @@ export default defineNuxtRouteMiddleware((to, from) => {
     const user = useSupabaseUser();
     
     // 1. Ilista ang public pages, kasama ang root path '/'
-    const publicPages = ['/login', '/signup', '/forgot-password', '/']; 
+    const publicPages = ['/login', '/signup', '/forgot-password', '/confirm']; 
     const isPublic = publicPages.includes(to.path);
     
     // Scenario A: Naka-login at nag-a-access ng Public Page (e.g., /login or /)

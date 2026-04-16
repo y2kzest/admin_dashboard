@@ -22,14 +22,25 @@ export default defineNuxtConfig({
     },
     // Add other module options here if needed
   },
-  
-  // --- 4. PostCSS/Tailwind (Handled by @nuxtjs/tailwindcss module) ---
-  // (No manual postcss block is needed here)
 
+  // --- 4. App Head (Inter font) ---
+  app: {
+    head: {
+      link: [
+        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+        {
+          rel: 'stylesheet',
+          href: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap',
+        },
+      ],
+    },
+  },
+  
   // --- 5. General Nuxt Features ---
   devtools: { enabled: true },
 
-  // --- 6. Nitro/Server Configuration (ADDED FIX) ---
+  // --- 6. Nitro/Server Configuration ---
   nitro: {
     compatibilityDate: '2025-11-20',
   },
