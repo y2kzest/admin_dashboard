@@ -150,6 +150,21 @@ const handleLogin = async () => {
         });
 
         if (authError) throw authError;
+
+        // Check if the account is suspended before granting access
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('status')
+                .eq('id', user.id)
+                .maybeSingle();
+            if (profile?.status === 'suspended') {
+                await supabase.auth.signOut();
+                errorMessage.value = 'Your account has been suspended. Please contact the administrator.';
+                return;
+            }
+        }
         
         const redirectPath: string | undefined = route.query.redirect as string | undefined;
         const destination = (redirectPath && redirectPath.startsWith('/')) ? redirectPath : '/dashboard';

@@ -43,5 +43,9 @@ export default defineNuxtConfig({
   // --- 6. Nitro/Server Configuration ---
   nitro: {
     compatibilityDate: '2025-11-20',
+    // Increase header size limit to handle large auth tokens during cleanup
+    serverOptions: {
+      maxHeaderSize: 131072, // 128 KB
+    },
   },
 });

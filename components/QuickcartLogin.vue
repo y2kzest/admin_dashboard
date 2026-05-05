@@ -96,10 +96,24 @@ const handleLogin = async () => {
         });
 
         if (authError) throw authError;
+
+        // Check if the account is suspended before granting access
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('status')
+                .eq('id', user.id)
+                .maybeSingle();
+            if (profile?.status === 'suspended') {
+                await supabase.auth.signOut();
+                errorMessage.value = 'Your account has been suspended. Please contact the administrator.';
+                return;
+            }
+        }
         
     } catch (err) {
         console.error(err);
-        // Ngayon, string na ang ina-assign, at wala nang Type error
         errorMessage.value = 'Login failed. Please check your email and password.';
     } finally {
         loading.value = false;

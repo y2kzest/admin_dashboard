@@ -1,96 +1,236 @@
 <template>
   <div>
     <h1 class="text-3xl font-bold text-gray-800 mb-6">Product & Service Management</h1>
-    
-    <div class="flex items-center justify-between mb-6 space-x-4">
-      
-      <div class="relative flex-grow">
-        <input 
-          type="text" 
-          placeholder="Search Product" 
+
+    <!-- Filters -->
+    <div class="flex flex-wrap items-center gap-3 mb-6">
+      <div class="relative flex-grow min-w-[200px]">
+        <input
+          type="text"
+          placeholder="Search by name, category..."
           v-model="search"
-          class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+          class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm text-sm"
         />
-        <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         </span>
       </div>
-      
-      <button class="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-md" @click="fetchProducts">
-        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+
+      <select v-model="categoryFilter" class="py-2 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm bg-white">
+        <option value="">All Categories</option>
+        <option v-for="cat in CATEGORIES" :key="cat" :value="cat">{{ cat }}</option>
+      </select>
+
+      <select v-model="statusFilter" class="py-2 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm bg-white">
+        <option value="">All Statuses</option>
+        <option value="active">Active</option>
+        <option value="out_of_stock">Out of Stock</option>
+      </select>
+
+      <button class="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm font-medium" @click="fetchProducts">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
         Refresh
       </button>
     </div>
-    
-    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-      <table class="min-w-full divide-y divide-gray-200">
+
+    <!-- Stats bar -->
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+      <div v-for="cat in CATEGORIES" :key="cat" class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 text-center">
+        <p class="text-xs text-gray-500 mb-0.5">{{ cat }}</p>
+        <p class="text-lg font-bold text-gray-800">{{ countByCategory(cat) }}</p>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <table class="min-w-full divide-y divide-gray-100">
         <thead class="bg-gray-50">
           <tr>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Type</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-14">Image</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Product</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Category</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Price</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Stock</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-200">
-
+        <tbody class="divide-y divide-gray-50">
           <tr v-if="loading">
-            <td colspan="5" class="px-6 py-6 text-sm text-gray-500">Loading products...</td>
+            <td colspan="7" class="px-5 py-8 text-sm text-gray-400 text-center">Loading products...</td>
           </tr>
-
           <tr v-else-if="error">
-            <td colspan="5" class="px-6 py-6 text-sm text-red-600">{{ error }}</td>
+            <td colspan="7" class="px-5 py-8 text-sm text-red-500 text-center">{{ error }}</td>
           </tr>
-
           <tr v-else-if="filteredProducts.length === 0">
-            <td colspan="5" class="px-6 py-6 text-sm text-gray-500">No products found.</td>
+            <td colspan="7" class="px-5 py-8 text-sm text-gray-400 text-center">No products found.</td>
           </tr>
-          
           <tr
             v-else
             v-for="product in filteredProducts"
             :key="product.id"
-            :class="[
-              'transition-colors',
-              isRecentlyAdded(product.id) ? 'bg-emerald-50 hover:bg-emerald-100' : 'hover:bg-gray-50'
-            ]"
+            class="hover:bg-gray-50 transition-colors"
+            :class="isRecentlyAdded(product.id) ? 'bg-emerald-50 hover:bg-emerald-50' : ''"
           >
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-              <div class="flex items-center gap-2">
-                <span>{{ product.name }}</span>
-                <span
-                  v-if="isRecentlyAdded(product.id)"
-                  class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-emerald-100 text-emerald-700"
-                >
-                  New
-                </span>
+            <!-- Image thumbnail -->
+            <td class="px-5 py-3">
+              <div class="h-12 w-12 rounded-lg overflow-hidden border border-gray-100 bg-gray-50 flex items-center justify-center flex-shrink-0">
+                <img
+                  v-if="getProductImageUrl(product)"
+                  :src="getProductImageUrl(product) || ''"
+                  :alt="product.name"
+                  class="h-full w-full object-cover"
+                  @error="(e) => { e.target.style.display = 'none' }"
+                />
+                <svg v-else class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
               </div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ product.unit_type }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ product.category }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" :class="getStatusBadgeClass(product)">
+
+            <!-- Product name + description -->
+            <td class="px-5 py-3">
+              <div class="flex items-start gap-1.5 flex-col">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-sm font-semibold text-gray-800">{{ product.name }}</span>
+                  <span v-if="isRecentlyAdded(product.id)" class="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700">New</span>
+                </div>
+                <p class="text-xs text-gray-400 truncate max-w-[200px]">{{ product.description || '—' }}</p>
+                <span class="text-xs text-gray-400">{{ product.unit_type }}</span>
+              </div>
+            </td>
+
+            <!-- Category badge -->
+            <td class="px-5 py-3">
+              <span class="text-xs font-semibold px-2.5 py-1 rounded-full" :class="getCategoryClass(product.category)">
+                {{ product.category || '—' }}
+              </span>
+            </td>
+
+            <!-- Price -->
+            <td class="px-5 py-3">
+              <p class="text-sm font-semibold text-gray-800">₱{{ Number(product.price).toFixed(2) }}</p>
+              <p class="text-xs text-gray-400">Retail: ₱{{ Number(product.retail_price).toFixed(2) }}</p>
+            </td>
+
+            <!-- Stock -->
+            <td class="px-5 py-3">
+              <span
+                class="text-sm font-bold"
+                :class="product.stock_quantity > 10 ? 'text-emerald-600' : product.stock_quantity > 0 ? 'text-amber-600' : 'text-red-600'"
+              >
+                {{ product.stock_quantity }}
+              </span>
+            </td>
+
+            <!-- Status -->
+            <td class="px-5 py-3">
+              <span class="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full" :class="getStatusBadgeClass(product)">
                 {{ getProductStatus(product) }}
               </span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-              <button class="text-white bg-green-500 hover:bg-green-600 px-3 py-1 rounded-md text-xs transition-colors">View</button>
-              <button class="text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded-md text-xs transition-colors" @click="removeProduct(product)">Remove</button>
+
+            <!-- Actions -->
+            <td class="px-5 py-3">
+              <div class="flex items-center gap-2">
+                <button class="text-white bg-indigo-500 hover:bg-indigo-600 px-3 py-1 rounded-md text-xs font-medium transition-colors" @click="openViewModal(product)">View</button>
+                <button class="text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded-md text-xs font-medium transition-colors" @click="removeProduct(product)">Remove</button>
+              </div>
             </td>
           </tr>
-
         </tbody>
       </table>
     </div>
 
-    <div
-      v-if="toast.show"
-      class="fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium bg-emerald-600 text-white"
-    >
-      {{ toast.message }}
-    </div>
-    
+    <!-- Product Detail Modal -->
+    <Teleport to="body">
+      <div v-if="viewModal && selectedProduct" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @click.self="viewModal = false">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+          <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <h3 class="text-base font-semibold text-gray-800">Product Details</h3>
+            <button @click="viewModal = false" class="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+
+          <div class="px-6 py-5 space-y-5">
+            <!-- Product image -->
+            <div class="w-full h-52 rounded-xl overflow-hidden bg-gray-50 border border-gray-100 flex items-center justify-center">
+              <img
+                v-if="getProductImageUrl(selectedProduct)"
+                :src="getProductImageUrl(selectedProduct) || ''"
+                :alt="selectedProduct.name"
+                class="h-full w-full object-contain"
+                @error="(e) => { e.target.style.display = 'none' }"
+              />
+              <div v-else class="flex flex-col items-center gap-2 text-gray-300">
+                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+                <span class="text-sm">No image</span>
+              </div>
+            </div>
+
+            <!-- Name + badge -->
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h2 class="text-lg font-bold text-gray-800">{{ selectedProduct.name }}</h2>
+                <p class="text-sm text-gray-400 mt-0.5">{{ selectedProduct.unit_type }}</p>
+              </div>
+              <span class="text-xs font-semibold px-2.5 py-1 rounded-full flex-shrink-0 mt-1" :class="getCategoryClass(selectedProduct.category)">
+                {{ selectedProduct.category || '—' }}
+              </span>
+            </div>
+
+            <!-- Description -->
+            <div>
+              <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Description</p>
+              <p class="text-sm text-gray-600">{{ selectedProduct.description || 'No description provided.' }}</p>
+            </div>
+
+            <!-- Info grid -->
+            <div class="grid grid-cols-3 gap-3">
+              <div class="bg-gray-50 rounded-xl p-3 text-center">
+                <p class="text-xs text-gray-400 mb-0.5">Price</p>
+                <p class="text-base font-bold text-gray-800">₱{{ Number(selectedProduct.price).toFixed(2) }}</p>
+              </div>
+              <div class="bg-gray-50 rounded-xl p-3 text-center">
+                <p class="text-xs text-gray-400 mb-0.5">Retail Price</p>
+                <p class="text-base font-bold text-gray-800">₱{{ Number(selectedProduct.retail_price).toFixed(2) }}</p>
+              </div>
+              <div class="bg-gray-50 rounded-xl p-3 text-center">
+                <p class="text-xs text-gray-400 mb-0.5">Stock</p>
+                <p class="text-base font-bold" :class="selectedProduct.stock_quantity > 0 ? 'text-emerald-600' : 'text-red-600'">
+                  {{ selectedProduct.stock_quantity }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Status -->
+            <div class="flex items-center gap-2">
+              <span class="px-3 py-1 text-xs font-semibold rounded-full" :class="getStatusBadgeClass(selectedProduct)">
+                {{ getProductStatus(selectedProduct) }}
+              </span>
+            </div>
+          </div>
+
+          <div class="px-6 py-4 border-t border-gray-100 flex justify-between">
+            <button @click="removeProduct(selectedProduct); viewModal = false" class="px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors">
+              Remove Product
+            </button>
+            <button @click="viewModal = false" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-xl transition-colors">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <Transition name="fade">
+      <div v-if="toast.show" class="fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-lg text-sm font-medium bg-emerald-600 text-white">
+        {{ toast.message }}
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -105,13 +245,34 @@ definePageMeta({
 
 type Product = Database['public']['Tables']['product']['Row']
 
+const CATEGORIES = ['Fish', 'Meat', 'Vegetables', 'Fruits', 'Apparel', 'Karinderya'] as const
+
+// Maps each display category to all lowercase aliases stored in the DB
+// (the app stores singular forms like "Fruit", "Vegetable", "Fish", "Meat")
+const CATEGORY_ALIASES: Record<string, string[]> = {
+  'Fish':       ['fish', 'fishes'],
+  'Meat':       ['meat', 'meats'],
+  'Vegetables': ['vegetable', 'vegetables', 'veggie', 'veggies'],
+  'Fruits':     ['fruit', 'fruits'],
+  'Apparel':    ['apparel'],
+  'Karinderya': ['karinderya'],
+}
+
+function categoryMatches(dbValue: string | null, displayCategory: string): boolean {
+  const val = (dbValue || '').toLowerCase().trim()
+  return (CATEGORY_ALIASES[displayCategory] || [displayCategory.toLowerCase()]).includes(val)
+}
+
 const supabase = useSupabaseClient<Database>()
 
 const products = ref<Product[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 const search = ref('')
-let pollTimer: ReturnType<typeof setInterval> | null = null
+const categoryFilter = ref('')
+const statusFilter = ref('')
+const viewModal = ref(false)
+const selectedProduct = ref<Product | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | null = null
 const recentProductIds = ref<string[]>([])
 const recentProductTimers: Record<string, ReturnType<typeof setTimeout>> = {}
@@ -119,15 +280,24 @@ const toast = ref({ show: false, message: '' })
 
 const filteredProducts = computed(() => {
   const q = search.value.trim().toLowerCase()
-  if (!q) return products.value
+  const cat = categoryFilter.value
+  const st = statusFilter.value
   return products.value.filter(p => {
-    return (
+    const matchesSearch = !q || (
       (p.name || '').toLowerCase().includes(q) ||
       (p.category || '').toLowerCase().includes(q) ||
+      (p.description || '').toLowerCase().includes(q) ||
       (p.unit_type || '').toLowerCase().includes(q)
     )
+    const matchesCategory = !cat || categoryMatches(p.category, cat)
+    const matchesStatus = !st || (st === 'active' ? p.stock_quantity > 0 : p.stock_quantity <= 0)
+    return matchesSearch && matchesCategory && matchesStatus
   })
 })
+
+function countByCategory(cat: string): number {
+  return products.value.filter(p => categoryMatches(p.category, cat)).length
+}
 
 function getProductStatus(product: Product): string {
   return product.stock_quantity > 0 ? 'Active' : 'Out of stock'
@@ -137,6 +307,31 @@ function getStatusBadgeClass(product: Product): string {
   return product.stock_quantity > 0
     ? 'bg-green-100 text-green-800'
     : 'bg-red-100 text-red-800'
+}
+
+function getCategoryClass(category: string | null): string {
+  const val = (category || '').toLowerCase().trim()
+  if (['fish', 'fishes'].includes(val))                              return 'bg-blue-100 text-blue-700'
+  if (['meat', 'meats'].includes(val))                               return 'bg-red-100 text-red-700'
+  if (['vegetable', 'vegetables', 'veggie', 'veggies'].includes(val)) return 'bg-green-100 text-green-700'
+  if (['fruit', 'fruits'].includes(val))                             return 'bg-orange-100 text-orange-700'
+  if (['apparel'].includes(val))                                      return 'bg-purple-100 text-purple-700'
+  if (['karinderya'].includes(val))                                   return 'bg-yellow-100 text-yellow-700'
+  return 'bg-gray-100 text-gray-600'
+}
+
+function getProductImageUrl(product: Product): string | null {
+  const raw = product.image_url
+  if (!raw || raw.trim() === '') return null
+  if (raw.startsWith('http')) return raw
+  // Try the "products" storage bucket
+  const { data } = supabase.storage.from('products').getPublicUrl(raw)
+  return data?.publicUrl || null
+}
+
+function openViewModal(product: Product) {
+  selectedProduct.value = product
+  viewModal.value = true
 }
 
 async function fetchProducts() {
@@ -167,15 +362,10 @@ function showToast(message: string) {
 
 function markAsRecent(productId: string) {
   if (!productId) return
-
   if (!recentProductIds.value.includes(productId)) {
     recentProductIds.value = [productId, ...recentProductIds.value].slice(0, 30)
   }
-
-  if (recentProductTimers[productId]) {
-    clearTimeout(recentProductTimers[productId])
-  }
-
+  if (recentProductTimers[productId]) clearTimeout(recentProductTimers[productId])
   recentProductTimers[productId] = setTimeout(() => {
     recentProductIds.value = recentProductIds.value.filter(id => id !== productId)
     delete recentProductTimers[productId]
@@ -201,20 +391,13 @@ function startLiveUpdates() {
       }
     )
     .subscribe()
-
-  // Realtime channel handles live updates; no polling needed.
-
   return channel
 }
 
 async function removeProduct(product: Product) {
-  const ok = confirm(`Remove ${product.name}?`)
+  const ok = confirm(`Remove "${product.name}"? This cannot be undone.`)
   if (!ok) return
 
-  // Use .select() so Supabase returns the rows it actually deleted.
-  // Without it, RLS silently blocks the delete (returns no error, 0 rows affected)
-  // and the code would still filter the product out of local state optimistically,
-  // making it appear deleted until the next page reload.
   const { data: deleted, error: err } = await supabase
     .from('product')
     .delete()
@@ -247,11 +430,7 @@ onBeforeUnmount(() => {
     supabase.removeChannel(productsChannel)
     productsChannel = null
   }
-  if (toastTimer) {
-    clearTimeout(toastTimer)
-    toastTimer = null
-  }
-
+  if (toastTimer) clearTimeout(toastTimer)
   Object.values(recentProductTimers).forEach(timer => clearTimeout(timer))
 })
 </script>

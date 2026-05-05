@@ -130,6 +130,16 @@
                   <button class="table-btn view" @click="openViewModal(vendor)">View</button>
                   <button class="table-btn edit" @click="openEditModal(vendor)">Edit</button>
                   <button
+                    v-if="getMonitoringStatusLabel(vendor) === 'Active'"
+                    class="table-btn suspend-btn"
+                    @click="suspendVendor(vendor)"
+                  >Suspend</button>
+                  <button
+                    v-if="getMonitoringStatusLabel(vendor) === 'Suspended'"
+                    class="table-btn unsuspend"
+                    @click="unsuspendVendor(vendor)"
+                  >Unsuspend</button>
+                  <button
                     v-if="getMonitoringStatusLabel(vendor) === 'Suspended'"
                     class="table-btn delete"
                     @click="deleteVendor(vendor)"
@@ -268,11 +278,18 @@
               {{ saving ? 'Saving...' : 'Save' }}
             </button>
             <button
-              v-if="modalMode === 'edit' && selectedVendor"
+              v-if="modalMode === 'edit' && selectedVendor && getWorkflowState(selectedVendor) !== 'suspended'"
               class="footer-btn suspend"
               @click="suspendAndClose"
             >
               Suspend
+            </button>
+            <button
+              v-if="modalMode === 'edit' && selectedVendor && getWorkflowState(selectedVendor) === 'suspended'"
+              class="footer-btn unsuspend"
+              @click="unsuspendAndClose"
+            >
+              Unsuspend
             </button>
           </div>
         </div>
@@ -805,6 +822,15 @@ async function suspendVendor(vendor: Vendor) {
   }
 }
 
+async function unsuspendVendor(vendor: Vendor) {
+  try {
+    await updateVendorStatus(vendor, 'approved')
+    showToast('Vendor account restored.', 'success')
+  } catch (caughtError: any) {
+    showToast(caughtError?.message || 'Failed to unsuspend vendor.', 'error')
+  }
+}
+
 async function approveAndClose() {
   if (!selectedVendor.value) return
   const target = selectedVendor.value
@@ -824,6 +850,13 @@ async function suspendAndClose() {
   const target = selectedVendor.value
   closeModal()
   await suspendVendor(target)
+}
+
+async function unsuspendAndClose() {
+  if (!selectedVendor.value) return
+  const target = selectedVendor.value
+  closeModal()
+  await unsuspendVendor(target)
 }
 
 async function deleteVendor(vendor: Vendor) {
@@ -1174,6 +1207,24 @@ onMounted(fetchVendors)
   background: #1f2937;
 }
 
+.table-btn.suspend-btn {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.table-btn.suspend-btn:hover {
+  background: #fde68a;
+}
+
+.table-btn.unsuspend {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.table-btn.unsuspend:hover {
+  background: #a7f3d0;
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -1513,6 +1564,15 @@ onMounted(fetchVendors)
 .footer-btn.decline:hover,
 .footer-btn.suspend:hover {
   background: #fecaca;
+}
+
+.footer-btn.unsuspend {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.footer-btn.unsuspend:hover {
+  background: #a7f3d0;
 }
 
 /* ── Toast ── */

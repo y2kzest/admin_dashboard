@@ -24,7 +24,7 @@
     <!-- Main content area -->
     <div class="flex flex-col flex-1 min-w-0 overflow-hidden">
       <AdminHeader />
-      <main class="flex-1 overflow-y-auto p-6">
+      <main class="flex-1 overflow-y-auto px-8 py-7">
         <slot />
       </main>
     </div>
