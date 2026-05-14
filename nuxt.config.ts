@@ -40,6 +40,11 @@ export default defineNuxtConfig({
   // --- 5. General Nuxt Features ---
   devtools: { enabled: true },
 
+  // --- 5b. Dev Server ---
+  devServer: {
+    port: 3000,
+  },
+
   // --- 6. Nitro/Server Configuration ---
   nitro: {
     compatibilityDate: '2025-11-20',

@@ -172,13 +172,11 @@
 
 <script setup lang="ts">
 import { $fetch } from 'ofetch'
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 
 definePageMeta({ layout: 'default', middleware: ['auth-admin'] })
 
-const user = useSupabaseUser()
-
-const adminId = computed(() => user.value?.id ?? '')
+const adminId = ref('')
 
 // ── Types ──────────────────────────────────────────────────────
 interface Conversation {
@@ -367,6 +365,9 @@ function startPolling() {
 
 // ── Lifecycle ─────────────────────────────────────────────────
 onMounted(async () => {
+  const supabase = useSupabaseClient()
+  const { data } = await supabase.auth.getUser()
+  adminId.value = data.user?.id ?? ''
   await refreshSupportData()
   startPolling()
 })

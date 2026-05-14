@@ -134,6 +134,7 @@
             <td class="px-5 py-3">
               <div class="flex items-center gap-2">
                 <button class="text-white bg-indigo-500 hover:bg-indigo-600 px-3 py-1 rounded-md text-xs font-medium transition-colors" @click="openViewModal(product)">View</button>
+                <button class="text-white bg-amber-500 hover:bg-amber-600 px-3 py-1 rounded-md text-xs font-medium transition-colors" @click="openEditModal(product)">Edit</button>
                 <button class="text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded-md text-xs font-medium transition-colors" @click="removeProduct(product)">Remove</button>
               </div>
             </td>
@@ -226,6 +227,64 @@
       </div>
     </Teleport>
 
+    <!-- Edit Product Modal -->
+    <Teleport to="body">
+      <div v-if="editModal && editingProduct" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @click.self="editModal = false">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+          <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <h3 class="text-base font-semibold text-gray-800">Edit Product</h3>
+            <button @click="editModal = false" class="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+
+          <div class="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Product Name</label>
+              <input v-model="editForm.name" type="text" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Description</label>
+              <textarea v-model="editForm.description" rows="3" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"></textarea>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Category</label>
+              <select v-model="editForm.category" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white">
+                <option v-for="cat in CATEGORIES" :key="cat" :value="cat">{{ cat }}</option>
+              </select>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Price (₱)</label>
+                <input v-model.number="editForm.price" type="number" min="0" step="0.01" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Retail Price (₱)</label>
+                <input v-model.number="editForm.retail_price" type="number" min="0" step="0.01" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Stock Quantity</label>
+                <input v-model.number="editForm.stock_quantity" type="number" min="0" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Unit Type</label>
+                <input v-model="editForm.unit_type" type="text" placeholder="e.g. kg, piece, pack" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              </div>
+            </div>
+          </div>
+
+          <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+            <button @click="editModal = false" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-xl transition-colors">Cancel</button>
+            <button @click="saveEdit" :disabled="editSaving" class="px-4 py-2 text-sm font-medium bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-colors disabled:opacity-50">
+              {{ editSaving ? 'Saving…' : 'Save Changes' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <Transition name="fade">
       <div v-if="toast.show" class="fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-lg text-sm font-medium bg-emerald-600 text-white">
         {{ toast.message }}
@@ -273,6 +332,18 @@ const categoryFilter = ref('')
 const statusFilter = ref('')
 const viewModal = ref(false)
 const selectedProduct = ref<Product | null>(null)
+const editModal = ref(false)
+const editingProduct = ref<Product | null>(null)
+const editSaving = ref(false)
+const editForm = ref({
+  name: '',
+  description: '',
+  category: '',
+  price: 0,
+  retail_price: 0,
+  stock_quantity: 0,
+  unit_type: '',
+})
 let toastTimer: ReturnType<typeof setTimeout> | null = null
 const recentProductIds = ref<string[]>([])
 const recentProductTimers: Record<string, ReturnType<typeof setTimeout>> = {}
@@ -332,6 +403,60 @@ function getProductImageUrl(product: Product): string | null {
 function openViewModal(product: Product) {
   selectedProduct.value = product
   viewModal.value = true
+}
+
+function openEditModal(product: Product) {
+  editingProduct.value = product
+  editForm.value = {
+    name: product.name || '',
+    description: product.description || '',
+    category: product.category || '',
+    price: Number(product.price) || 0,
+    retail_price: Number(product.retail_price) || 0,
+    stock_quantity: product.stock_quantity || 0,
+    unit_type: product.unit_type || '',
+  }
+  editModal.value = true
+}
+
+async function saveEdit() {
+  if (!editingProduct.value) return
+  editSaving.value = true
+  try {
+    const { error: err } = await supabase
+      .from('product')
+      .update({
+        name: editForm.value.name,
+        description: editForm.value.description,
+        category: editForm.value.category,
+        price: editForm.value.price,
+        retail_price: editForm.value.retail_price,
+        stock_quantity: editForm.value.stock_quantity,
+        unit_type: editForm.value.unit_type,
+      })
+      .eq('id', editingProduct.value.id)
+    if (err) throw err
+    const idx = products.value.findIndex(p => p.id === editingProduct.value!.id)
+    if (idx !== -1) {
+      const p = products.value[idx]
+      products.value[idx] = {
+        ...p,
+        name: editForm.value.name,
+        description: editForm.value.description,
+        category: editForm.value.category,
+        price: editForm.value.price,
+        retail_price: editForm.value.retail_price,
+        stock_quantity: editForm.value.stock_quantity,
+        unit_type: editForm.value.unit_type,
+      }
+    }
+    editModal.value = false
+    showToast(`"${editForm.value.name}" updated successfully.`)
+  } catch (e: any) {
+    showToast(`Failed to update product: ${e?.message || e}`)
+  } finally {
+    editSaving.value = false
+  }
 }
 
 async function fetchProducts() {

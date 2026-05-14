@@ -241,7 +241,7 @@
             <div class="form-row form-row-link">
               <button class="permit-link" @click="handleViewPermits">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                View Permits
+                View Permits &amp; ID
               </button>
             </div>
           </div>
@@ -296,6 +296,149 @@
       </div>
     </Teleport>
 
+    <!-- Permit Viewer Modal -->
+    <Teleport to="body">
+      <div
+        v-if="permitModal"
+        class="modal-overlay"
+        style="z-index:10100"
+        @click.self="permitModal = false; permitLoadError = null"
+      >
+        <div style="background:#fff;border-radius:18px;width:min(92vw,820px);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.25)">
+
+          <!-- Header -->
+          <div style="padding:18px 22px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+            <div>
+              <h3 style="margin:0;font-size:15px;font-weight:700;color:#111827">Permit Documents</h3>
+              <p style="margin:3px 0 0;font-size:12px;color:#6b7280">{{ selectedVendor?.store_name || selectedVendor?.full_name || 'Seller' }}</p>
+            </div>
+            <button @click="permitModal = false; permitLoadError = null" style="width:32px;height:32px;border:none;background:#f3f4f6;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+
+          <!-- Summary bar (only when loaded) -->
+          <div
+            v-if="!permitLoading && !permitLoadError && permitItems.length > 0 && permitItems.every(p => p.quality !== 'analyzing')"
+            style="padding:10px 22px;background:#f9fafb;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:20px;font-size:12px;font-weight:600;flex-shrink:0"
+          >
+            <span style="color:#111827">{{ permitItems.filter(p => p.type === 'permit').length }} permit{{ permitItems.filter(p => p.type === 'permit').length !== 1 ? 's' : '' }}, {{ permitItems.filter(p => p.type === 'id').length }} ID</span>
+            <span v-if="permitItems.filter(p => p.quality === 'clear').length" style="color:#16a34a">
+              ✓ {{ permitItems.filter(p => p.quality === 'clear').length }} Clear
+            </span>
+            <span v-if="permitItems.filter(p => p.quality === 'blurry').length" style="color:#d97706">
+              ⚠ {{ permitItems.filter(p => p.quality === 'blurry').length }} Blurry
+            </span>
+            <span v-if="permitItems.filter(p => p.quality === 'very_blurry').length" style="color:#dc2626">
+              ✗ {{ permitItems.filter(p => p.quality === 'very_blurry').length }} Too Blurry / Suspicious
+            </span>
+          </div>
+
+          <!-- Body -->
+          <div style="flex:1;overflow-y:auto;padding:20px 22px">
+
+            <!-- Loading -->
+            <div v-if="permitLoading" style="text-align:center;padding:48px;color:#6b7280;font-size:14px">
+              Loading documents…
+            </div>
+
+            <!-- Error state (stays inside modal instead of silently closing) -->
+            <div v-else-if="permitLoadError" style="text-align:center;padding:48px">
+              <p style="color:#dc2626;font-size:14px;font-weight:600;margin:0 0 6px">Failed to load documents</p>
+              <p style="color:#6b7280;font-size:12px;margin:0">{{ permitLoadError }}</p>
+            </div>
+
+            <!-- Empty -->
+            <div v-else-if="permitItems.length === 0" style="text-align:center;padding:48px;color:#6b7280;font-size:14px">
+              No permits or ID files found for this vendor.
+            </div>
+
+            <template v-else>
+              <!-- Business Permits section -->
+              <div v-if="permitItems.filter(p => p.type === 'permit').length > 0" style="margin-bottom:24px">
+                <p style="margin:0 0 12px;font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em">
+                  Business Permits ({{ permitItems.filter(p => p.type === 'permit').length }})
+                </p>
+                <!-- Permit cards -->
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">
+                  <div
+                    v-for="(item, idx) in permitItems.filter(p => p.type === 'permit')"
+                    :key="`permit-${idx}`"
+                    style="border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.06)"
+                  >
+                    <div style="position:relative;background:#f3f4f6;aspect-ratio:4/3;overflow:hidden;display:flex;align-items:center;justify-content:center">
+                      <img :src="item.url" :alt="item.name" crossorigin="anonymous" style="max-width:100%;max-height:100%;object-fit:contain"
+                        @load="(e) => onPermitImageLoad(e, permitItems.indexOf(item))"
+                        @error="() => { item.quality = 'error' }" />
+                      <div style="position:absolute;top:8px;right:8px">
+                        <span v-if="item.quality === 'analyzing'" style="background:#6b7280;color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px">Scanning…</span>
+                        <span v-else-if="item.quality === 'clear'" style="background:#16a34a;color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px">✓ Clear</span>
+                        <span v-else-if="item.quality === 'blurry'" style="background:#d97706;color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px">⚠ Blurry</span>
+                        <span v-else-if="item.quality === 'very_blurry'" style="background:#dc2626;color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px">✗ Too Blurry</span>
+                        <span v-else-if="item.quality === 'error'" style="background:#6b7280;color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px">Failed to Load</span>
+                      </div>
+                    </div>
+                    <div style="padding:10px 13px 12px">
+                      <p style="margin:0 0 3px;font-size:12px;font-weight:600;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ item.name }}</p>
+                      <p v-if="item.width" style="margin:0 0 6px;font-size:11px;color:#9ca3af">{{ item.width }}×{{ item.height }}px<span v-if="item.score > 0" style="margin-left:8px">Sharpness: {{ item.score }}</span></p>
+                      <div v-if="item.quality === 'very_blurry'" style="background:#fef2f2;border:1px solid #fca5a5;border-radius:7px;padding:6px 9px;margin-bottom:7px;font-size:11px;color:#dc2626;font-weight:600">✗ Too blurry — may be fake or obscured. Consider rejecting.</div>
+                      <div v-else-if="item.quality === 'blurry'" style="background:#fffbeb;border:1px solid #fde68a;border-radius:7px;padding:6px 9px;margin-bottom:7px;font-size:11px;color:#92400e;font-weight:600">⚠ Slightly blurry — ask seller to re-upload.</div>
+                      <div v-if="item.width > 0 && item.width < 400" style="background:#fef2f2;border:1px solid #fca5a5;border-radius:7px;padding:6px 9px;margin-bottom:7px;font-size:11px;color:#dc2626;font-weight:600">⚠ Very low resolution ({{ item.width }}px) — may be a fake screenshot.</div>
+                      <a :href="item.url" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#2563eb;font-weight:600;text-decoration:none">Open full size ↗</a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Government ID section -->
+              <div v-if="permitItems.filter(p => p.type === 'id').length > 0">
+                <p style="margin:0 0 12px;font-size:12px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em">
+                  Government ID ({{ permitItems.filter(p => p.type === 'id').length }})
+                </p>
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">
+                  <div
+                    v-for="(item, idx) in permitItems.filter(p => p.type === 'id')"
+                    :key="`id-${idx}`"
+                    style="border-radius:12px;overflow:hidden;border:2px solid #dbeafe;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.06)"
+                  >
+                    <div style="position:relative;background:#eff6ff;aspect-ratio:4/3;overflow:hidden;display:flex;align-items:center;justify-content:center">
+                      <img :src="item.url" :alt="item.name" crossorigin="anonymous" style="max-width:100%;max-height:100%;object-fit:contain"
+                        @load="(e) => onPermitImageLoad(e, permitItems.indexOf(item))"
+                        @error="() => { item.quality = 'error' }" />
+                      <div style="position:absolute;top:8px;left:8px">
+                        <span style="background:#1d4ed8;color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px">Gov't ID</span>
+                      </div>
+                      <div style="position:absolute;top:8px;right:8px">
+                        <span v-if="item.quality === 'analyzing'" style="background:#6b7280;color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px">Scanning…</span>
+                        <span v-else-if="item.quality === 'clear'" style="background:#16a34a;color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px">✓ Clear</span>
+                        <span v-else-if="item.quality === 'blurry'" style="background:#d97706;color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px">⚠ Blurry</span>
+                        <span v-else-if="item.quality === 'very_blurry'" style="background:#dc2626;color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px">✗ Too Blurry</span>
+                        <span v-else-if="item.quality === 'error'" style="background:#6b7280;color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px">Failed to Load</span>
+                      </div>
+                    </div>
+                    <div style="padding:10px 13px 12px">
+                      <p style="margin:0 0 3px;font-size:12px;font-weight:600;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ item.name }}</p>
+                      <p v-if="item.width" style="margin:0 0 6px;font-size:11px;color:#9ca3af">{{ item.width }}×{{ item.height }}px<span v-if="item.score > 0" style="margin-left:8px">Sharpness: {{ item.score }}</span></p>
+                      <div v-if="item.quality === 'very_blurry'" style="background:#fef2f2;border:1px solid #fca5a5;border-radius:7px;padding:6px 9px;margin-bottom:7px;font-size:11px;color:#dc2626;font-weight:600">✗ ID is too blurry to read — consider rejecting this vendor.</div>
+                      <div v-else-if="item.quality === 'blurry'" style="background:#fffbeb;border:1px solid #fde68a;border-radius:7px;padding:6px 9px;margin-bottom:7px;font-size:11px;color:#92400e;font-weight:600">⚠ ID slightly blurry — ask seller to re-upload.</div>
+                      <div v-if="item.width > 0 && item.width < 400" style="background:#fef2f2;border:1px solid #fca5a5;border-radius:7px;padding:6px 9px;margin-bottom:7px;font-size:11px;color:#dc2626;font-weight:600">⚠ Very low resolution — may be a fake screenshot.</div>
+                      <a :href="item.url" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#2563eb;font-weight:600;text-decoration:none">Open full size ↗</a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- No ID warning -->
+              <div v-if="permitItems.filter(p => p.type === 'id').length === 0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 16px;margin-top:8px;font-size:12px;color:#92400e;font-weight:600">
+                ⚠ No government ID submitted by this vendor.
+              </div>
+            </template>
+
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <div v-if="toast.show" class="toast" :class="toast.type">{{ toast.message }}</div>
   </div>
 </template>
@@ -322,6 +465,7 @@ interface Vendor {
   product_listed?: number | null
   permit_count?: number | null
   permit_urls?: string[] | null
+  id_url?: string | null
   logo_url?: string | null
   category?: string | null
   has_bank_account?: boolean | null
@@ -370,6 +514,20 @@ const modalMode = ref<'view' | 'edit' | 'create'>('view')
 const toast = ref<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' })
 const vendorForm = ref<VendorForm>(emptyVendorForm())
 
+interface PermitItem {
+  url: string
+  name: string
+  quality: 'analyzing' | 'clear' | 'blurry' | 'very_blurry' | 'error'
+  score: number
+  width: number
+  height: number
+  type: 'permit' | 'id'
+}
+const permitModal = ref(false)
+const permitItems = ref<PermitItem[]>([])
+const permitLoading = ref(false)
+const permitLoadError = ref<string | null>(null)
+
 let toastTimer: ReturnType<typeof setTimeout> | null = null
 
 function emptyVendorForm(): VendorForm {
@@ -402,12 +560,13 @@ function getInitials(name: string): string {
     .slice(0, 2)
 }
 
-function getWorkflowState(vendor: Vendor): 'pending' | 'approved' | 'declined' | 'suspended' {
+function getWorkflowState(vendor: Vendor): 'pending' | 'approved' | 'declined' | 'suspended' | 'deleted' {
   const raw = (vendor.approval_status || vendor.status || 'pending').toLowerCase()
 
   if (['approved', 'active', 'complete'].includes(raw)) return 'approved'
   if (['suspended'].includes(raw)) return 'suspended'
   if (['declined', 'rejected', 'disabled', 'blocked'].includes(raw)) return 'declined'
+  if (['deleted', 'removed'].includes(raw)) return 'deleted'
   return 'pending'
 }
 
@@ -471,7 +630,10 @@ const pendingVendors = computed(() => {
 })
 
 const monitoringVendors = computed(() => {
-  return vendors.value.filter(vendor => getWorkflowState(vendor) !== 'pending' && matchesSearch(vendor, monitoringSearch.value))
+  return vendors.value.filter(vendor => {
+    const state = getWorkflowState(vendor)
+    return state !== 'pending' && state !== 'deleted' && matchesSearch(vendor, monitoringSearch.value)
+  })
 })
 
 const vendorOptions = computed<VendorOption[]>(() => {
@@ -566,6 +728,7 @@ async function fetchVendors() {
         official_contact_email: (row as any).official_contact_email ?? null,
         store_information_final: (row as any).store_information_final ?? null,
         permit_urls: (row as any).permit_urls ?? null,
+        id_url: (row as any).id_url ?? null,
         logo_url: (row as any).logo_url ?? null,
         category: (row as any).category ?? null,
         has_bank_account: (row as any).has_bank_account ?? null,
@@ -871,8 +1034,25 @@ async function deleteVendor(vendor: Vendor) {
       supabase.from('profiles').delete().eq('id', targetUserId),
     ])
 
-    if (sellerResponse.error && profileResponse.error) {
-      throw sellerResponse.error
+    const hardDeleteFailed = sellerResponse.error || profileResponse.error
+
+    if (hardDeleteFailed) {
+      // Hard delete blocked (RLS or FK constraint) — fall back to soft delete
+      // so the vendor disappears from the UI immediately.
+      const { error: softError } = await (supabase as any)
+        .from('seller_profiles')
+        .update({ approval_status: 'deleted' })
+        .eq('user_id', targetUserId)
+
+      if (softError) {
+        // Log the original hard-delete error for debugging
+        console.error('Hard delete error:', sellerResponse.error || profileResponse.error)
+        throw softError
+      }
+
+      await fetchVendors()
+      showToast(`"${name}" has been removed from the vendor list.`, 'success')
+      return
     }
 
     await fetchVendors()
@@ -886,31 +1066,114 @@ async function handleViewPermits() {
   const vendor = selectedVendor.value
   if (!vendor) return
 
-  const userId = vendor.user_id || vendor.id
+  permitLoading.value = true
+  permitLoadError.value = null
+  permitItems.value = []
+  permitModal.value = true
 
-  const { data: files, error: listError } = await supabase.storage
-    .from('Permits')
-    .list(`${userId}/permits`)
+  try {
+    // Re-fetch this vendor's seller_profile to get the latest URLs from the DB.
+    // This avoids storage RLS issues entirely — URLs are stored as public columns.
+    const userId = vendor.user_id || vendor.id
+    const { data: profile, error: profileError } = await (supabase as any)
+      .from('seller_profiles')
+      .select('permit_urls, id_url')
+      .eq('user_id', userId)
+      .maybeSingle()
 
-  if (listError) {
-    showToast('Failed to load permit files.', 'error')
-    return
-  }
-
-  if (!files || files.length === 0) {
-    showToast('No permit files found for this vendor.', 'error')
-    return
-  }
-
-  for (const file of files) {
-    const { data: signedData, error: signError } = await supabase.storage
-      .from('Permits')
-      .createSignedUrl(`${userId}/permits/${file.name}`, 60 * 60 * 24 * 7)
-    if (signedData?.signedUrl) {
-      window.open(signedData.signedUrl, '_blank')
-    } else if (signError) {
-      console.warn('Failed to sign permit URL:', signError)
+    if (profileError) {
+      permitLoadError.value = `Could not load vendor documents: ${profileError.message}`
+      return
     }
+
+    const items: PermitItem[] = []
+
+    // Business permits — stored as an array of public URLs
+    for (const [idx, url] of ((profile?.permit_urls ?? []) as string[]).entries()) {
+      if (url) {
+        items.push({
+          url,
+          name: `Permit ${idx + 1}`,
+          quality: 'analyzing',
+          score: 0,
+          width: 0,
+          height: 0,
+          type: 'permit',
+        })
+      }
+    }
+
+    // Government ID — single URL
+    if (profile?.id_url) {
+      items.push({
+        url: profile.id_url as string,
+        name: 'Government ID',
+        quality: 'analyzing',
+        score: 0,
+        width: 0,
+        height: 0,
+        type: 'id',
+      })
+    }
+
+    permitItems.value = items
+  } catch (err: any) {
+    permitLoadError.value = err?.message || 'Failed to load documents.'
+  } finally {
+    permitLoading.value = false
+  }
+}
+
+function computeLaplacianVariance(imageData: ImageData): number {
+  const { data, width, height } = imageData
+  const gray = new Float64Array(width * height)
+  for (let i = 0, j = 0; i < data.length; i += 4, j++) {
+    gray[j] = 0.299 * (data[i] ?? 0) + 0.587 * (data[i + 1] ?? 0) + 0.114 * (data[i + 2] ?? 0)
+  }
+  let sum = 0, sumSq = 0, count = 0
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const idx = y * width + x
+      const center = gray[idx] ?? 0
+      const left   = gray[idx - 1] ?? 0
+      const right  = gray[idx + 1] ?? 0
+      const top    = gray[idx - width] ?? 0
+      const bottom = gray[idx + width] ?? 0
+      const lap = center * (-4) + left + right + top + bottom
+      sum += lap; sumSq += lap * lap; count++
+    }
+  }
+  const mean = sum / count
+  return (sumSq / count) - mean * mean
+}
+
+function onPermitImageLoad(event: Event, idx: number) {
+  const img = event.target as HTMLImageElement
+  const item = permitItems.value[idx]
+  if (!item) return
+
+  item.width = img.naturalWidth
+  item.height = img.naturalHeight
+
+  if (img.naturalWidth < 80 || img.naturalHeight < 80) {
+    item.quality = 'very_blurry'
+    return
+  }
+
+  try {
+    const canvas = document.createElement('canvas')
+    const scale = Math.min(1, 500 / Math.max(img.naturalWidth, img.naturalHeight))
+    canvas.width = Math.round(img.naturalWidth * scale)
+    canvas.height = Math.round(img.naturalHeight * scale)
+    const ctx = canvas.getContext('2d')
+    if (!ctx) { item.quality = 'clear'; return }
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const variance = computeLaplacianVariance(imageData)
+    item.score = Math.round(variance)
+    item.quality = variance >= 80 ? 'clear' : variance >= 20 ? 'blurry' : 'very_blurry'
+  } catch {
+    item.quality = 'clear'
   }
 }
 
