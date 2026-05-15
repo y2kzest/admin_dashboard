@@ -316,6 +316,8 @@ const userInitials = computed(() => {
 // ── Profile ──
 const avatarInput = ref<HTMLInputElement | null>(null)
 const avatarFile = ref<File | null>(null)
+// Shared with AdminHeader so saving updates the header avatar instantly
+const sharedAvatarUrl = useState<string | null>('admin-avatar-url', () => null)
 const profilePreview = ref<string | null>(null)
 const profileSaving = ref(false)
 const profileSaved = ref(false)
@@ -388,8 +390,19 @@ async function saveProfile() {
   profileSaving.value = true
   profileSaved.value = false
   try {
-    const uid = user.value?.id
-    if (!uid) throw new Error('Not authenticated')
+    // Fetch the user fresh from Supabase — useSupabaseUser() can be stale
+    // (e.g. after the page has sat idle and the session refreshed in the background)
+    let uid = user.value?.id as string | undefined
+    if (!uid) {
+      const { data: { user: fresh } } = await supabase.auth.getUser()
+      uid = fresh?.id
+    }
+    if (!uid) {
+      showToast('Session expired — please sign in again', 'error')
+      profileSaving.value = false
+      navigateTo('/login')
+      return
+    }
 
     // 1. Update display name in auth metadata (name is tiny — fine in JWT)
     const { error: authErr } = await supabase.auth.updateUser({
@@ -402,16 +415,23 @@ async function saveProfile() {
 
     // 2. If a new avatar was chosen, resize to a small thumbnail and save to
     //    the `profile` table — NOT to user metadata — so the JWT stays small.
+    //    `email` is NOT NULL in the schema, so include it for the first-insert case.
     if (avatarFile.value) {
       const dataUrl = await resizeToDataUrl(avatarFile.value, 128)
       const { error: profileErr } = await supabase
         .from('profile')
         .upsert(
-          { user_id: uid, avatar_url: dataUrl },
+          {
+            user_id: uid,
+            email: userEmail.value,
+            name: profileForm.value.displayName,
+            avatar_url: dataUrl,
+          } as any,
           { onConflict: 'user_id' }
         )
       if (profileErr) throw profileErr
       profilePreview.value = dataUrl
+      sharedAvatarUrl.value = dataUrl
     }
 
     profileSaved.value = true
@@ -506,7 +526,13 @@ function showToast(message: string, type: 'success' | 'error' = 'success') {
 onMounted(async () => {
   loadSettings()
   profileForm.value.displayName = userName.value
-  profilePreview.value = await loadCurrentAvatar()
+  if (sharedAvatarUrl.value) {
+    profilePreview.value = sharedAvatarUrl.value
+  } else {
+    const url = await loadCurrentAvatar()
+    profilePreview.value = url
+    sharedAvatarUrl.value = url
+  }
 
   // Try to sync settings from Supabase
   supabase.from('system_settings').select('*').eq('id', 'main').single()

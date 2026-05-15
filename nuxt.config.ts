@@ -23,8 +23,9 @@ export default defineNuxtConfig({
     // Add other module options here if needed
   },
 
-  // --- 4. App Head (Inter font) ---
+  // --- 4. App Head (Inter font) + Page Transition ---
   app: {
+    pageTransition: { name: 'page', mode: 'out-in' },
     head: {
       link: [
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },

@@ -156,7 +156,8 @@ const sidebarOpen = useState<boolean>('sidebarOpen', () => true)
 // ── Profile ──
 const dropdownOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
-const adminAvatarUrl = ref<string | null>(null)
+// Shared across header + settings so saving an avatar updates the UI instantly
+const adminAvatarUrl = useState<string | null>('admin-avatar-url', () => null)
 
 const userName = computed(() =>
   (user.value?.user_metadata?.display_name as string | undefined)
@@ -173,15 +174,14 @@ const userInitials = computed(() => {
 async function loadAdminAvatar() {
   try {
     const uid = user.value?.id
-    if (!uid) return
-    // Load from profile table — avatar is stored there, not in JWT metadata
+    if (!uid) { adminAvatarUrl.value = null; return }
     const { data } = await supabase
       .from('profile')
       .select('avatar_url')
       .eq('user_id', uid)
       .maybeSingle()
     const url = data?.avatar_url as string | null
-    if (!url) return
+    if (!url) { adminAvatarUrl.value = null; return }
     if (url.startsWith('data:') || url.startsWith('http')) { adminAvatarUrl.value = url; return }
     const { data: storageData } = supabase.storage.from('Avatars').getPublicUrl(url)
     adminAvatarUrl.value = storageData?.publicUrl || null
@@ -327,7 +327,7 @@ function handleClickOutside(e: MouseEvent) {
 
 onMounted(() => {
   loadSeen()
-  loadAdminAvatar()
+  if (!adminAvatarUrl.value) loadAdminAvatar()
   document.addEventListener('mousedown', handleClickOutside)
   fetchHeaderNotifs()
 })
