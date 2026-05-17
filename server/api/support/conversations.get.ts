@@ -81,8 +81,9 @@ function getPublicStorageUrl(supabaseUrl: string, bucket: string, path: string) 
 export default eventHandler(async (event) => {
   const { supabaseUrl, serviceHeaders, userId } = await requireSupportAdmin(event)
 
+  // Flutter app created conversations with `last_message_at` (not last_message_time)
   const conversationsResponse = await fetch(
-    `${supabaseUrl}/rest/v1/conversations?select=*&seller_id=eq.${userId}&order=last_message_time.desc`,
+    `${supabaseUrl}/rest/v1/conversations?select=*&seller_id=eq.${userId}&order=last_message_at.desc.nullslast`,
     { headers: serviceHeaders },
   )
   const rows = await conversationsResponse.json() as Array<Record<string, any>> | Record<string, any>
@@ -127,7 +128,7 @@ export default eventHandler(async (event) => {
 
     let avatarUrl = profile.avatar_url ?? null
     if (avatarUrl && !String(avatarUrl).startsWith('http') && !String(avatarUrl).startsWith('data:')) {
-      avatarUrl = getPublicStorageUrl(supabaseUrl, 'Avatars', String(avatarUrl))
+      avatarUrl = getPublicStorageUrl(supabaseUrl, 'avatars', String(avatarUrl))
     }
 
     return {
@@ -137,7 +138,7 @@ export default eventHandler(async (event) => {
       buyer_email: authProfile.email || profile.email || '',
       buyer_avatar: avatarUrl,
       last_message: row.last_message,
-      last_message_time: row.last_message_time || row.last_message_at || row.created_at || null,
+      last_message_time: row.last_message_at || row.last_message_time || row.created_at || null,
       unread_admin: row.unread_admin ?? 0,
     }
   })

@@ -25,6 +25,7 @@
         <option value="">All Statuses</option>
         <option value="active">Active</option>
         <option value="out_of_stock">Out of Stock</option>
+        <option value="featured">Today's Picks</option>
       </select>
 
       <button class="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm font-medium" @click="fetchProducts">
@@ -52,18 +53,19 @@
             <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Price</th>
             <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Stock</th>
             <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Pick</th>
             <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-50">
           <tr v-if="loading">
-            <td colspan="7" class="px-5 py-8 text-sm text-gray-400 text-center">Loading products...</td>
+            <td colspan="8" class="px-5 py-8 text-sm text-gray-400 text-center">Loading products...</td>
           </tr>
           <tr v-else-if="error">
-            <td colspan="7" class="px-5 py-8 text-sm text-red-500 text-center">{{ error }}</td>
+            <td colspan="8" class="px-5 py-8 text-sm text-red-500 text-center">{{ error }}</td>
           </tr>
           <tr v-else-if="filteredProducts.length === 0">
-            <td colspan="7" class="px-5 py-8 text-sm text-gray-400 text-center">No products found.</td>
+            <td colspan="8" class="px-5 py-8 text-sm text-gray-400 text-center">No products found.</td>
           </tr>
           <tr
             v-else
@@ -94,6 +96,7 @@
                 <div class="flex items-center gap-1.5">
                   <span class="text-sm font-semibold text-gray-800">{{ product.name }}</span>
                   <span v-if="isRecentlyAdded(product.id)" class="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700">New</span>
+                  <span v-if="(product as any).is_featured" class="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-700">Today's Pick</span>
                 </div>
                 <p class="text-xs text-gray-400 truncate max-w-[200px]">{{ product.description || '—' }}</p>
                 <span class="text-xs text-gray-400">{{ product.unit_type }}</span>
@@ -128,6 +131,25 @@
               <span class="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full" :class="getStatusBadgeClass(product)">
                 {{ getProductStatus(product) }}
               </span>
+            </td>
+
+            <!-- Today's Pick toggle -->
+            <td class="px-5 py-3">
+              <button
+                :title="(product as any).is_featured ? 'Remove from Today\'s Picks' : 'Add to Today\'s Picks'"
+                class="transition-transform hover:scale-110"
+                @click="toggleFeatured(product)"
+              >
+                <svg
+                  class="w-5 h-5"
+                  :class="(product as any).is_featured ? 'text-amber-400 fill-amber-400' : 'text-gray-300 fill-none'"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  viewBox="0 0 24 24"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z"/>
+                </svg>
+              </button>
             </td>
 
             <!-- Actions -->
@@ -361,7 +383,12 @@ const filteredProducts = computed(() => {
       (p.unit_type || '').toLowerCase().includes(q)
     )
     const matchesCategory = !cat || categoryMatches(p.category, cat)
-    const matchesStatus = !st || (st === 'active' ? p.stock_quantity > 0 : p.stock_quantity <= 0)
+    const matchesStatus = !st || (
+      st === 'active' ? p.stock_quantity > 0 :
+      st === 'out_of_stock' ? p.stock_quantity <= 0 :
+      st === 'featured' ? (p as any).is_featured === true :
+      false
+    )
     return matchesSearch && matchesCategory && matchesStatus
   })
 })
@@ -541,6 +568,21 @@ async function removeProduct(product: Product) {
 
   products.value = products.value.filter(p => p.id !== product.id)
   showToast(`"${product.name}" removed successfully.`)
+}
+
+async function toggleFeatured(product: Product) {
+  const next = !((product as any).is_featured)
+  const { error: err } = await supabase
+    .from('product')
+    .update({ is_featured: next } as any)
+    .eq('id', product.id)
+  if (err) {
+    showToast(`Failed to update: ${err.message}`)
+    return
+  }
+  const idx = products.value.findIndex(p => p.id === product.id)
+  if (idx !== -1) (products.value[idx] as any).is_featured = next
+  showToast(next ? `"${product.name}" added to Today's Picks.` : `"${product.name}" removed from Today's Picks.`)
 }
 
 let productsChannel: ReturnType<typeof startLiveUpdates> | null = null

@@ -107,11 +107,12 @@ export default eventHandler(async (event) => {
   }
 
   const [conversationsResponse, messagesResponse] = await Promise.all([
+    // unread_admin may not exist if Flutter's migration ran first — fail silently
     fetch(`${supabaseUrl}/rest/v1/conversations?id=eq.${conversationId}`, {
       method: 'PATCH',
       headers: serviceHeaders,
       body: JSON.stringify({ unread_admin: 0 }),
-    }),
+    }).catch(() => null),
     fetch(`${supabaseUrl}/rest/v1/messages?conversation_id=eq.${conversationId}&is_read=eq.false&sender_id=neq.${userId}`, {
       method: 'PATCH',
       headers: serviceHeaders,
@@ -119,12 +120,17 @@ export default eventHandler(async (event) => {
     }),
   ])
 
-  if (!conversationsResponse.ok) {
+  // Ignore unread_admin PATCH failure — column may not exist yet (see sql/add-support-columns.sql)
+  if (conversationsResponse && !conversationsResponse.ok) {
     const errorBody = await conversationsResponse.text()
-    throw createError({
-      statusCode: conversationsResponse.status,
-      statusMessage: errorBody || conversationsResponse.statusText,
-    })
+    const parsed = (() => { try { return JSON.parse(errorBody) } catch { return null } })()
+    // Only throw on unexpected errors, not missing-column (42703)
+    if (parsed?.code !== '42703') {
+      throw createError({
+        statusCode: conversationsResponse.status,
+        statusMessage: parsed?.message || conversationsResponse.statusText,
+      })
+    }
   }
 
   if (!messagesResponse.ok) {

@@ -251,17 +251,17 @@ function autoGrow(e: Event) {
 }
 
 // ── Load conversations ─────────────────────────────────────────
-async function fetchConversations() {
-  loadingConvos.value = true
-  fetchError.value = null
+async function fetchConversations(silent = false) {
+  if (!silent) loadingConvos.value = true
+  if (!silent) fetchError.value = null
   try {
     const { conversations: rows } = await $fetch<{ conversations: Conversation[] }>('/api/support/conversations')
     conversations.value = rows
   } catch (e: any) {
-    fetchError.value = e?.message || String(e)
+    if (!silent) fetchError.value = e?.message || String(e)
     console.error('[support] fetchConversations error:', e)
   } finally {
-    loadingConvos.value = false
+    if (!silent) loadingConvos.value = false
   }
 }
 
@@ -329,13 +329,13 @@ async function sendMessage() {
 }
 
 // ── Polling ────────────────────────────────────────────────────
-async function refreshSupportData() {
+async function refreshSupportData(silent = false) {
   if (refreshInFlight) return
   refreshInFlight = true
 
   try {
     const activeId = selectedId.value
-    await fetchConversations()
+    await fetchConversations(silent)
 
     if (activeId) {
       const exists = conversations.value.some(c => c.id === activeId)
@@ -357,7 +357,8 @@ async function refreshSupportData() {
 function startPolling() {
   if (refreshTimer) clearInterval(refreshTimer)
   refreshTimer = setInterval(() => {
-    refreshSupportData().catch((error) => {
+    // silent=true: refresh in background without showing the loading spinner
+    refreshSupportData(true).catch((error) => {
       console.error('[support] polling error:', error)
     })
   }, 5000)
@@ -368,7 +369,7 @@ onMounted(async () => {
   const supabase = useSupabaseClient()
   const { data } = await supabase.auth.getUser()
   adminId.value = data.user?.id ?? ''
-  await refreshSupportData()
+  await refreshSupportData(false)  // show spinner on first load only
   startPolling()
 })
 

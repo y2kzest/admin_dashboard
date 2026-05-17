@@ -306,9 +306,9 @@ async function fetchDashboardData() {
   loading.value = true
   try {
     const [vendorRes, productRes, profileRes, allOrdersRes] = await Promise.all([
-      supabase.from('seller_profiles').select('id,store_name,full_name,approval_status,category,created_at', { count: 'exact' }).order('created_at', { ascending: false }),
-      supabase.from('product').select('id', { count: 'exact' }),
-      supabase.from('profiles').select('id,email,role,status', { count: 'exact' }),
+      supabase.from('seller_profiles').select('id,user_id,store_name,full_name,approval_status,category,created_at', { count: 'exact' }).order('created_at', { ascending: false }),
+      supabase.from('product').select('id,user_id', { count: 'exact' }),
+      supabase.from('profiles').select('id,email,full_name,role,status', { count: 'exact' }),
       supabase.from('orders').select('id,total_amount,status,created_at,buyer_id', { count: 'exact' }).order('created_at', { ascending: false }),
     ])
 
@@ -319,17 +319,35 @@ async function fetchDashboardData() {
     stats.value.pendingVendors = vendors.filter(v => v.approval_status === 'pending').length
     recentVendors.value = vendors.slice(0, 5)
 
-    // Top sellers by product count - approximate from vendor data
+    // Products — total count + per-seller breakdown for top sellers
+    const productRows = (productRes.data || []) as Array<{ id: string; user_id: string | null }>
+    const productCountByUser = new Map<string, number>()
+    for (const row of productRows) {
+      if (!row.user_id) continue
+      productCountByUser.set(row.user_id, (productCountByUser.get(row.user_id) ?? 0) + 1)
+    }
+
     topSellers.value = vendors
       .filter(v => v.approval_status === 'approved')
-      .map(v => ({ id: v.id, name: v.store_name || v.full_name || 'Unknown', category: v.category, products: 0 }))
+      .map(v => ({
+        id: v.id,
+        name: v.store_name || v.full_name || 'Unknown',
+        category: v.category,
+        products: productCountByUser.get(v.user_id) ?? 0,
+      }))
+      .sort((a, b) => b.products - a.products)
       .slice(0, 5)
 
-    // Products
-    stats.value.totalProducts = productRes.count ?? 0
+    stats.value.totalProducts = productRes.count ?? productRows.length
 
-    // Users (profiles)
-    stats.value.totalUsers = profileRes.count ?? 0
+    // Users (profiles) — keep an id→name lookup so recent orders can show a real buyer
+    const profileRows = (profileRes.data || []) as Array<{ id: string; email: string | null; full_name: string | null }>
+    stats.value.totalUsers = profileRes.count ?? profileRows.length
+    const buyerNameById = new Map<string, string>()
+    for (const row of profileRows) {
+      const label = (row.full_name?.trim()) || (row.email?.split('@')[0]) || ''
+      if (label) buyerNameById.set(row.id, label)
+    }
 
     // Orders (single fetch — derive recent + breakdown from the same dataset)
     if (!allOrdersRes.error) {
@@ -341,7 +359,10 @@ async function fetchDashboardData() {
       stats.value.totalRevenue = allOrders
         .filter(o => (o.status || '').toLowerCase() === 'completed')
         .reduce((sum, o) => sum + (o.total_amount ?? 0), 0)
-      recentOrders.value = allOrders.slice(0, 5).map(o => ({ ...o, buyer_name: null }))
+      recentOrders.value = allOrders.slice(0, 5).map(o => ({
+        ...o,
+        buyer_name: o.buyer_id ? (buyerNameById.get(o.buyer_id) ?? null) : null,
+      }))
     }
   } catch (e) {
     console.error('[dashboard] fetch error:', e)

@@ -355,7 +355,7 @@ async function loadCurrentAvatar(): Promise<string | null> {
     const url = data?.avatar_url as string | null
     if (!url) return null
     if (url.startsWith('data:') || url.startsWith('http')) return url
-    const { data: storageData } = supabase.storage.from('Avatars').getPublicUrl(url)
+    const { data: storageData } = supabase.storage.from('avatars').getPublicUrl(url)
     return storageData?.publicUrl || null
   } catch { return null }
 }
@@ -390,16 +390,13 @@ async function saveProfile() {
   profileSaving.value = true
   profileSaved.value = false
   try {
-    // Fetch the user fresh from Supabase — useSupabaseUser() can be stale
-    // (e.g. after the page has sat idle and the session refreshed in the background)
-    let uid = user.value?.id as string | undefined
-    if (!uid) {
-      const { data: { user: fresh } } = await supabase.auth.getUser()
-      uid = fresh?.id
-    }
+    // Always use the authoritative session — useSupabaseUser() can be stale
+    const { data: { user: freshUser } } = await supabase.auth.getUser()
+    const uid = freshUser?.id
+    const freshEmail = freshUser?.email ?? userEmail.value
+
     if (!uid) {
       showToast('Session expired — please sign in again', 'error')
-      profileSaving.value = false
       navigateTo('/login')
       return
     }
@@ -415,7 +412,7 @@ async function saveProfile() {
 
     // 2. If a new avatar was chosen, resize to a small thumbnail and save to
     //    the `profile` table — NOT to user metadata — so the JWT stays small.
-    //    `email` is NOT NULL in the schema, so include it for the first-insert case.
+    //    `email` is NOT NULL in the schema, so always include it.
     if (avatarFile.value) {
       const dataUrl = await resizeToDataUrl(avatarFile.value, 128)
       const { error: profileErr } = await supabase
@@ -423,7 +420,7 @@ async function saveProfile() {
         .upsert(
           {
             user_id: uid,
-            email: userEmail.value,
+            email: freshEmail,
             name: profileForm.value.displayName,
             avatar_url: dataUrl,
           } as any,

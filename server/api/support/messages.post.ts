@@ -132,12 +132,12 @@ export default eventHandler(async (event) => {
     })
   }
 
+  // Use last_message_at — the column Flutter created; last_message_time may not exist
   const updateResponse = await fetch(`${supabaseUrl}/rest/v1/conversations?id=eq.${conversationId}`, {
     method: 'PATCH',
     headers: serviceHeaders,
     body: JSON.stringify({
       last_message: content,
-      last_message_time: now,
       last_message_at: now,
     }),
   })

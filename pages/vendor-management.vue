@@ -99,13 +99,14 @@
               <th>Stall No.</th>
               <th>Category</th>
               <th>Contact</th>
+              <th>Delivery Fee</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="monitoringVendors.length === 0">
-              <td colspan="6" class="empty-row">No approved or suspended vendors found.</td>
+              <td colspan="7" class="empty-row">No approved or suspended vendors found.</td>
             </tr>
             <tr v-for="vendor in monitoringVendors" :key="`monitor-${vendor.user_id || vendor.id}`">
               <td class="vendor-name-cell">
@@ -119,6 +120,7 @@
               <td>{{ getStallLabel(vendor) }}</td>
               <td>{{ vendor.category || getBusinessType(vendor) }}</td>
               <td>{{ getContact(vendor) }}</td>
+              <td>{{ Number(vendor.delivery_fee ?? 0) > 0 ? `₱${Number(vendor.delivery_fee).toFixed(2)}` : 'Free' }}</td>
               <td>
                 <span class="status-pill" :class="getMonitoringStatusClass(vendor)">
                   <span class="status-dot" :class="getMonitoringStatusClass(vendor)"></span>
@@ -129,6 +131,13 @@
                 <div class="row-actions">
                   <button class="table-btn view" @click="openViewModal(vendor)">View</button>
                   <button class="table-btn edit" @click="openEditModal(vendor)">Edit</button>
+                  <button
+                    v-if="getMonitoringStatusLabel(vendor) === 'Active'"
+                    class="table-btn feature"
+                    :class="{ active: vendor.is_featured }"
+                    :title="vendor.is_featured ? 'Remove from featured carousel' : 'Show in featured carousel on home page'"
+                    @click="toggleFeatured(vendor)"
+                  >{{ vendor.is_featured ? '★ Featured' : '☆ Feature' }}</button>
                   <button
                     v-if="getMonitoringStatusLabel(vendor) === 'Active'"
                     class="table-btn suspend-btn"
@@ -216,6 +225,11 @@
             <div class="form-row">
               <label>Operating Hours</label>
               <input v-model="vendorForm.operatingHours" :disabled="modalMode === 'view'" type="text" />
+            </div>
+
+            <div class="form-row">
+              <label>Delivery Fee (₱)</label>
+              <input v-model.number="vendorForm.deliveryFee" :disabled="modalMode === 'view'" type="number" min="0" step="0.01" />
             </div>
 
             <div class="form-row">
@@ -473,6 +487,9 @@ interface Vendor {
   contact_info_set?: boolean | null
   is_info_complete?: boolean | null
   is_profile_finalized?: boolean | null
+  is_featured?: boolean | null
+  banner_url?: string | null
+  delivery_fee?: number | null
   approval_status?: string | null
   status?: string | null
   created_at: string
@@ -494,6 +511,7 @@ interface VendorForm {
   storeAddress: string
   officialContactEmail: string
   storeInformation: string
+  deliveryFee: number
 }
 
 interface VendorOption {
@@ -542,6 +560,7 @@ function emptyVendorForm(): VendorForm {
     storeAddress: '',
     officialContactEmail: '',
     storeInformation: '',
+    deliveryFee: 0,
   }
 }
 
@@ -607,8 +626,8 @@ function getLogoUrl(vendor: Vendor): string | null {
   if (!raw) return null
   // If it's already a full URL, use it directly
   if (raw.startsWith('http')) return raw
-  // Otherwise build the public URL from the Logos bucket
-  const { data } = supabase.storage.from('Logos').getPublicUrl(raw)
+  // Otherwise build the public URL from the logos bucket
+  const { data } = supabase.storage.from('logos').getPublicUrl(raw)
   return data?.publicUrl || null
 }
 
@@ -668,13 +687,12 @@ async function fetchVendors() {
     const identityError = identityResponse.error
     const detailsError = detailsResponse.error
 
-    // Diagnostic: log all query results to help identify RLS / schema issues
-    console.group('[vendor-management] fetchVendors')
-    console.log('seller_profiles:', sellerResponse.data?.length ?? 0, 'rows', sellerError ? `| ERROR: ${sellerError.message}` : '')
-    console.log('profiles (sellers):', profilesResponse.data?.length ?? 0, 'rows', profilesError ? `| ERROR: ${profilesError.message}` : '')
-    console.log('profile (identity):', identityResponse.data?.length ?? 0, 'rows', identityError ? `| ERROR: ${identityError.message}` : '')
-    console.log('vendor_management_details:', detailsResponse.data?.length ?? 0, 'rows', detailsError ? `| ERROR ${detailsError.code}: ${detailsError.message}` : '')
-    console.groupEnd()
+    if (sellerError) console.warn('[vendor-management] seller_profiles error:', sellerError.message)
+    if (profilesError) console.warn('[vendor-management] profiles error:', profilesError.message)
+    if (identityError) console.warn('[vendor-management] profile (identity) error:', identityError.message)
+    if (detailsError && detailsError.code !== '42P01') {
+      console.warn('[vendor-management] vendor_management_details error:', detailsError.message)
+    }
 
     detailsSetupRequired.value = detailsError?.code === '42P01'
 
@@ -736,6 +754,9 @@ async function fetchVendors() {
         contact_info_set: (row as any).contact_info_set ?? null,
         is_info_complete: (row as any).is_info_complete ?? null,
         is_profile_finalized: (row as any).is_profile_finalized ?? null,
+        is_featured: (row as any).is_featured ?? false,
+        banner_url: (row as any).banner_url ?? null,
+        delivery_fee: Number((row as any).delivery_fee ?? 0),
       })
     }
 
@@ -790,22 +811,6 @@ async function fetchVendors() {
     vendors.value = Array.from(merged.values()).sort((left, right) => {
       return new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
     })
-
-    // Diagnostic: show per-vendor workflow classification in browser console
-    console.table(vendors.value.map(v => ({
-      name: getDisplayName(v),
-      source: v.source,
-      approval_status: v.approval_status ?? '(null)',
-      status: v.status ?? '(null)',
-      workflowState: getWorkflowState(v),
-    })))
-
-    if (identityError) {
-      console.warn('Unable to load profile table for vendor contact details.', identityError)
-    }
-    if (detailsError && !detailsSetupRequired.value) {
-      console.warn('Unable to load vendor management details.', detailsError)
-    }
   } catch (caughtError: any) {
     error.value = caughtError?.message || 'Failed to load vendors'
   } finally {
@@ -825,6 +830,7 @@ function populateVendorForm(vendor: Vendor) {
     storeAddress: vendor.store_address || '',
     officialContactEmail: vendor.official_contact_email || vendor.email || '',
     storeInformation: vendor.store_information_final || '',
+    deliveryFee: Number(vendor.delivery_fee ?? 0),
   }
 }
 
@@ -871,6 +877,7 @@ function handleCreateVendorChange() {
     storeAddress: chosenVendor.store_address || '',
     officialContactEmail: chosenVendor.official_contact_email || chosenVendor.email || '',
     storeInformation: chosenVendor.store_information_final || '',
+    deliveryFee: Number(chosenVendor.delivery_fee ?? 0),
   }
 }
 
@@ -912,6 +919,7 @@ async function saveVendorProfile() {
         store_address: vendorForm.value.storeAddress || null,
         official_contact_email: vendorForm.value.officialContactEmail || null,
         store_information_final: vendorForm.value.storeInformation || null,
+        delivery_fee: Math.max(0, Number(vendorForm.value.deliveryFee) || 0),
       })
       .eq('user_id', vendorForm.value.targetUserId)
 
@@ -992,6 +1000,46 @@ async function unsuspendVendor(vendor: Vendor) {
   } catch (caughtError: any) {
     showToast(caughtError?.message || 'Failed to unsuspend vendor.', 'error')
   }
+}
+
+// Flip the seller's `is_featured` flag — drives the "Featured Stores"
+// carousel on the buyer home page. Requires the `is_featured` column from
+// sql/add-is-featured-column.sql; we surface a clear message if it's
+// missing so the admin knows what to run.
+async function toggleFeatured(vendor: Vendor) {
+  const targetUserId = vendor.user_id || vendor.id
+  const next = !vendor.is_featured
+
+  if (next && !vendor.banner_url) {
+    showToast(
+      'This vendor has no banner image yet — featuring will show a blue placeholder until they upload one.',
+      'success',
+    )
+  }
+
+  const { error: updateError } = await supabase
+    .from('seller_profiles')
+    .update({ is_featured: next })
+    .eq('user_id', targetUserId)
+
+  if (updateError) {
+    const msg = updateError.message || ''
+    if (/column .*is_featured.* does not exist/i.test(msg)) {
+      showToast(
+        'Run sql/add-is-featured-column.sql against your Supabase project first.',
+        'error',
+      )
+    } else {
+      showToast(msg || 'Failed to update featured status.', 'error')
+    }
+    return
+  }
+
+  vendor.is_featured = next
+  showToast(
+    next ? 'Vendor featured on home page.' : 'Vendor removed from featured.',
+    'success',
+  )
 }
 
 async function approveAndClose() {
@@ -1486,6 +1534,26 @@ onMounted(fetchVendors)
 
 .table-btn.unsuspend:hover {
   background: #a7f3d0;
+}
+
+.table-btn.feature {
+  background: #eef2ff;
+  color: #3730a3;
+  border: 1px solid #c7d2fe;
+}
+
+.table-btn.feature:hover {
+  background: #e0e7ff;
+}
+
+.table-btn.feature.active {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+.table-btn.feature.active:hover {
+  background: #fde68a;
 }
 
 .status-pill {

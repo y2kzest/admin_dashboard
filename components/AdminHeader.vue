@@ -183,7 +183,7 @@ async function loadAdminAvatar() {
     const url = data?.avatar_url as string | null
     if (!url) { adminAvatarUrl.value = null; return }
     if (url.startsWith('data:') || url.startsWith('http')) { adminAvatarUrl.value = url; return }
-    const { data: storageData } = supabase.storage.from('Avatars').getPublicUrl(url)
+    const { data: storageData } = supabase.storage.from('avatars').getPublicUrl(url)
     adminAvatarUrl.value = storageData?.publicUrl || null
   } catch { /* silent */ }
 }

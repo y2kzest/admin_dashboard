@@ -174,10 +174,21 @@
               <div>
                 <p class="text-slate-400 text-xs mb-0.5">Total Amount</p>
                 <p class="text-lg font-bold text-slate-800">₱{{ (selectedOrder.total_amount ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2 }) }}</p>
+                <p v-if="(selectedOrder.delivery_fee ?? 0) > 0" class="text-xs text-slate-400 mt-0.5">
+                  incl. ₱{{ Number(selectedOrder.delivery_fee).toLocaleString('en-PH', { minimumFractionDigits: 2 }) }} delivery
+                </p>
               </div>
               <div>
                 <p class="text-slate-400 text-xs mb-0.5">Date</p>
                 <p class="font-medium text-slate-700">{{ formatDate(selectedOrder.created_at) }}</p>
+              </div>
+              <div v-if="(selectedOrder.delivery_fee ?? 0) > 0 || selectedOrder.delivery_address">
+                <p class="text-slate-400 text-xs mb-0.5">Delivery Fee</p>
+                <p class="font-medium text-slate-700">₱{{ Number(selectedOrder.delivery_fee ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2 }) }}</p>
+              </div>
+              <div v-if="selectedOrder.delivery_address">
+                <p class="text-slate-400 text-xs mb-0.5">Delivery Address</p>
+                <p class="font-medium text-slate-700 break-words">{{ selectedOrder.delivery_address }}</p>
               </div>
             </div>
 

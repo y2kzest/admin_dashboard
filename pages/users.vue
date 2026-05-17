@@ -251,13 +251,13 @@ function getProfileImageUrl(user: any): string | null {
   // For sellers, prefer logo from seller_profiles
   if (user.role === 'seller' && user.logo_url) {
     if (user.logo_url.startsWith('http')) return user.logo_url
-    const { data } = supabase.storage.from('Logos').getPublicUrl(user.logo_url)
+    const { data } = supabase.storage.from('logos').getPublicUrl(user.logo_url)
     return data?.publicUrl || null
   }
   // For buyers and others, use avatar_url from profile table
   if (user.avatar_url) {
     if (user.avatar_url.startsWith('http')) return user.avatar_url
-    const { data } = supabase.storage.from('Avatars').getPublicUrl(user.avatar_url)
+    const { data } = supabase.storage.from('avatars').getPublicUrl(user.avatar_url)
     return data?.publicUrl || null
   }
   return null
