@@ -1,28 +1,28 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center p-8" style="background: #F8F9FC;">
+  <div class="min-h-screen flex items-center justify-center px-4 py-6 sm:px-6 sm:py-8 lg:px-8" style="background: #F8F9FC;">
     <Transition name="slide-up" appear>
-      <div class="w-full max-w-md">
+      <div class="w-full max-w-sm sm:max-w-md">
 
         <!-- Logo -->
-        <div class="flex items-center justify-center gap-3 mb-10">
-          <img src="/logo.png" alt="Quickcart" class="h-10 w-auto" />
-          <span class="text-2xl font-bold tracking-tight" style="color: #111827;">Quickcart</span>
-          <span class="text-[11px] font-semibold px-2.5 py-0.5" style="background: #1A4DBE; color: #fff; border-radius: 999px;">Admin</span>
+        <div class="flex items-center justify-center gap-2 sm:gap-3 mb-8 sm:mb-10">
+          <img src="/logo.png" alt="Quickcart" class="h-8 sm:h-10 w-auto" />
+          <span class="text-xl sm:text-2xl font-bold tracking-tight" style="color: #111827;">Quickcart</span>
+          <span class="text-[10px] sm:text-[11px] font-semibold px-2 sm:px-2.5 py-0.5" style="background: #1A4DBE; color: #fff; border-radius: 999px;">Admin</span>
         </div>
 
           <!-- Heading -->
-          <div class="mb-8">
-            <h2 class="text-3xl font-extrabold tracking-tight" style="color: #111827;">Welcome back</h2>
-            <p class="mt-2 text-sm" style="color: #6B7280;">Sign in to your admin account to continue.</p>
+          <div class="mb-6 sm:mb-8">
+            <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight" style="color: #111827;">Welcome back</h2>
+            <p class="mt-2 text-xs sm:text-sm" style="color: #6B7280;">Sign in to your admin account to continue.</p>
           </div>
 
-          <form @submit.prevent="handleLogin" class="space-y-5">
+          <form @submit.prevent="handleLogin" class="space-y-4 sm:space-y-5">
 
             <!-- Email -->
             <div>
-              <label for="email" class="block text-sm font-semibold mb-1.5" style="color: #111827;">Email address</label>
+              <label for="email" class="block text-xs sm:text-sm font-semibold mb-1.5" style="color: #111827;">Email address</label>
               <div class="relative">
-                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                <span class="absolute inset-y-0 left-0 pl-3 sm:pl-3.5 flex items-center pointer-events-none">
                   <svg class="w-4 h-4" style="color: #6B7280;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                   </svg>
@@ -34,7 +34,9 @@
                   required
                   :disabled="loading"
                   placeholder="admin@quickcart.com"
-                  class="block w-full pl-10 pr-4 py-3 bg-white border border-gray-200 text-sm shadow-sm transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                  autocomplete="email"
+                  inputmode="email"
+                  class="block w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 bg-white border border-gray-200 text-sm shadow-sm transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                   style="border-radius: 20px; color: #111827; outline: none;"
                   @focus="(e) => (e.target as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(26,77,190,0.15)'"
                   @blur="(e) => (e.target as HTMLInputElement).style.boxShadow = ''"
@@ -44,9 +46,9 @@
 
             <!-- Password -->
             <div>
-              <label for="password" class="block text-sm font-semibold mb-1.5" style="color: #111827;">Password</label>
+              <label for="password" class="block text-xs sm:text-sm font-semibold mb-1.5" style="color: #111827;">Password</label>
               <div class="relative">
-                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                <span class="absolute inset-y-0 left-0 pl-3 sm:pl-3.5 flex items-center pointer-events-none">
                   <svg class="w-4 h-4" style="color: #6B7280;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                   </svg>
@@ -58,7 +60,8 @@
                   required
                   :disabled="loading"
                   placeholder="Enter your password"
-                  class="block w-full pl-10 pr-12 py-3 bg-white border border-gray-200 text-sm shadow-sm transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                  autocomplete="current-password"
+                  class="block w-full pl-9 sm:pl-10 pr-11 sm:pr-12 py-2.5 sm:py-3 bg-white border border-gray-200 text-sm shadow-sm transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                   style="border-radius: 20px; color: #111827; outline: none;"
                   @focus="(e) => (e.target as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(26,77,190,0.15)'"
                   @blur="(e) => (e.target as HTMLInputElement).style.boxShadow = ''"
@@ -67,7 +70,8 @@
                   type="button"
                   @click="showPassword = !showPassword"
                   :disabled="loading"
-                  class="absolute inset-y-0 right-0 pr-3.5 flex items-center transition-colors disabled:pointer-events-none"
+                  aria-label="Toggle password visibility"
+                  class="absolute inset-y-0 right-0 pr-3 sm:pr-3.5 flex items-center transition-colors disabled:pointer-events-none"
                   style="color: #6B7280;"
                 >
                   <svg v-if="showPassword" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -86,11 +90,11 @@
 
             <!-- Error message -->
             <Transition name="fade">
-              <div v-if="errorMessage" class="flex items-start gap-2.5 p-3.5 bg-red-50 border border-red-200" style="border-radius: 20px;">
+              <div v-if="errorMessage" class="flex items-start gap-2 sm:gap-2.5 p-3 sm:p-3.5 bg-red-50 border border-red-200" style="border-radius: 20px;">
                 <svg class="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
-                <p class="text-sm text-red-700 font-medium">{{ errorMessage }}</p>
+                <p class="text-xs sm:text-sm text-red-700 font-medium break-words">{{ errorMessage }}</p>
               </div>
             </Transition>
 
@@ -98,7 +102,7 @@
             <button
               type="submit"
               :disabled="loading"
-              class="w-full flex items-center justify-center gap-2.5 py-3 px-4 text-white font-semibold text-sm shadow-lg transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 focus:outline-none"
+              class="w-full flex items-center justify-center gap-2 sm:gap-2.5 py-2.5 sm:py-3 px-4 text-white font-semibold text-sm shadow-lg transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0 focus:outline-none"
               style="background: #1A4DBE; border-radius: 20px; border: none;"
               @mouseover="(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#2A4BA0' }"
               @mouseout="(e) => (e.currentTarget as HTMLButtonElement).style.background = '#1A4DBE'"
@@ -112,7 +116,7 @@
           </form>
 
           <!-- Divider / extra link -->
-          <p class="mt-8 text-center text-xs" style="color: #6B7280;">
+          <p class="mt-6 sm:mt-8 text-center text-[11px] sm:text-xs px-2" style="color: #6B7280;">
             Protected admin area · Unauthorized access is prohibited
           </p>
         </div>
